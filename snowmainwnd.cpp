@@ -73,7 +73,7 @@ void SnowMainWnd::onRequestLoginPageFinished()
     {
         // Captcha Required!
         qDebug() << match.captured(0);
-        this->ui->textEdit_Info->append("Captcha Required!\n Loading Captcha Image...");
+        this->ui->textEdit_Info->append("Captcha Required!\nLoading Captcha Image...");
 
         this->replyLoginPage->deleteLater();
         this->replyLoginPage = nullptr;
@@ -160,7 +160,7 @@ void SnowMainWnd::onSubmitLoginFormFinished()
         this->replyLoginFormSubmitted = nullptr;
 
         // Login Success
-        this->ui->textEdit_Info->append("Login Success!");
+        this->ui->textEdit_Info->append("Login Success!\n");
 
         // Stage 3: Request other pages
         this->startRequestPage_roduktauswahlJsp();
@@ -171,7 +171,7 @@ void SnowMainWnd::onSubmitLoginFormFinished()
         this->replyLoginFormSubmitted = nullptr;
 
         // Login Failed
-        this->ui->textEdit_Info->append("Login Failed!");
+        this->ui->textEdit_Info->append("Login Failed!\n");
         this->ui->textEdit_Info->append(
                     "1) Username/Password/CaptchaCode Incorrect\n2) Your account has been blocked");
     }
@@ -218,7 +218,7 @@ void SnowMainWnd::startFetchingCaptchaImage()
     request.setHeader(QNetworkRequest::UserAgentHeader,"Snow-Client admin@xuefeng.space");
     QString captchaUrl =
             "https://shop.deutschepost.de/shop/security/captcha?random=" +
-            QRandomGenerator::global()->generate();
+            QString::number(QRandomGenerator::global()->generate());
     request.setUrl(QUrl(captchaUrl));
 
     this->ui->textEdit_Info->append("GET: " + captchaUrl);
