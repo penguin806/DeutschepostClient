@@ -31,7 +31,7 @@ SnowMainWnd::~SnowMainWnd()
 void SnowMainWnd::on_pushButton_clicked()
 {
     this->ui->pushButton->setEnabled(false);
-    this->startLogin();
+    this->startFetchingLoginPage();
 }
 
 void SnowMainWnd::onRequestLoginPageFinished()
@@ -106,8 +106,9 @@ void SnowMainWnd::onSubmitLoginFormFinished()
 
         // Login Success
         this->ui->textEdit_Info->append("Login Success!");
-        // Stage 3: Request other pages
 
+        // Stage 3: Request other pages
+        this->startRequestPage_roduktauswahlJsp();
     }
     else
     {
@@ -119,10 +120,25 @@ void SnowMainWnd::onSubmitLoginFormFinished()
     }
 }
 
-void SnowMainWnd::startLogin()
+void SnowMainWnd::onRequestPage_roduktauswahlJsp_Finished()
+{
+    qDebug() << "onRequestPage_roduktauswahlJsp_Finished(): " << this->replyPage_roduktauswahlJsp->bytesAvailable();
+    this->ui->textEdit_Info->append("Response: " +
+                                    QString::number(this->replyPage_roduktauswahlJsp->bytesAvailable()) + "Bytes");
+    qDebug() << "Status: " +
+                this->replyPage_roduktauswahlJsp->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+    this->ui->textEdit_Info->append("HttpReasonPhraseAttribute: " + this->replyPage_roduktauswahlJsp->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString());
+
+    QString responseData =
+            QString::fromUtf8(this->replyPage_roduktauswahlJsp->readAll());
+    qDebug() << "responseData: " + responseData;
+}
+
+void SnowMainWnd::startFetchingLoginPage()
 {
     // Stage 1: GET and parse the login html
     QNetworkRequest request;
+    request.setHeader(QNetworkRequest::UserAgentHeader,"Snow-Client admin@xuefeng.space");
     request.setUrl(QUrl("https://shop.deutschepost.de/shop/login_page.jsp"));
 
     this->ui->textEdit_Info->append("GET: https://shop.deutschepost.de/shop/login_page.jsp");
@@ -138,6 +154,7 @@ void SnowMainWnd::startSubmitingLoginForm()
     request.setUrl(QUrl("https://shop.deutschepost.de/shop/login_page.jsp"));
     request.setHeader(QNetworkRequest::ContentTypeHeader,
                       "application/x-www-form-urlencoded");
+    request.setHeader(QNetworkRequest::UserAgentHeader,"Snow-Client admin@xuefeng.space");
     QVariant var;
     var.setValue(this->cookies);
     request.setHeader(QNetworkRequest::CookieHeader,var);
@@ -161,4 +178,19 @@ void SnowMainWnd::startSubmitingLoginForm()
             this->manager->post(request,queryParams.query().toUtf8());
     QObject::connect(this->replyLoginFormSubmitted,SIGNAL(finished()),
                      this,SLOT(onSubmitLoginFormFinished()));
+}
+
+void SnowMainWnd::startRequestPage_roduktauswahlJsp()
+{
+    QNetworkRequest request;
+    request.setUrl(QUrl("https://shop.deutschepost.de/shop/warenpost/produktauswahl.jsp"));
+    request.setHeader(QNetworkRequest::UserAgentHeader,"Snow-Client admin@xuefeng.space");
+    QVariant var;
+    var.setValue(this->cookies);
+    request.setHeader(QNetworkRequest::CookieHeader,var);
+
+    this->ui->textEdit_Info->append("GET: https://shop.deutschepost.de/shop/warenpost/produktauswahl.jsp");
+    this->replyPage_roduktauswahlJsp = this->manager->get(request);
+    QObject::connect(this->replyPage_roduktauswahlJsp,SIGNAL(finished()),
+                     this,SLOT(onRequestPage_roduktauswahlJsp_Finished()));
 }

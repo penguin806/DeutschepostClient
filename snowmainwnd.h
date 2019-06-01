@@ -21,11 +21,13 @@ private slots:
     void on_pushButton_clicked();
     void onRequestLoginPageFinished();
     void onSubmitLoginFormFinished();
+    void onRequestPage_roduktauswahlJsp_Finished();
 
 private:
     Ui::SnowMainWnd *ui;
-    void startLogin();
+    void startFetchingLoginPage();
     void startSubmitingLoginForm();
+    void startRequestPage_roduktauswahlJsp();
 
     QNetworkAccessManager *manager;
     QNetworkReply *replyLoginPage;
@@ -34,6 +36,8 @@ private:
     QString _efiReqConf;
 
     QNetworkReply *replyLoginFormSubmitted;
+
+    QNetworkReply *replyPage_roduktauswahlJsp;
 };
 
 #endif // SNOWMAINWND_H
