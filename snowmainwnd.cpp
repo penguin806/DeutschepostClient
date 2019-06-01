@@ -153,7 +153,8 @@ void SnowMainWnd::onSubmitLoginFormFinished()
 
 
     if(this->replyLoginFormSubmitted->attribute(
-                QNetworkRequest::HttpStatusCodeAttribute).toInt() == 302)
+                QNetworkRequest::HttpStatusCodeAttribute).toInt() == 302 &&
+            redirectionTarget == "https://shop.deutschepost.de/shop/katalog/index.jsp")
     {
         this->replyLoginFormSubmitted->deleteLater();
         this->replyLoginFormSubmitted = nullptr;
@@ -171,8 +172,11 @@ void SnowMainWnd::onSubmitLoginFormFinished()
 
         // Login Failed
         this->ui->textEdit_Info->append("Login Failed!");
+        this->ui->textEdit_Info->append(
+                    "1) Username/Password/CaptchaCode Incorrect\n2) Your account has been blocked");
     }
 }
+
 
 void SnowMainWnd::onRequestPage_roduktauswahlJsp_Finished()
 {
@@ -191,6 +195,7 @@ void SnowMainWnd::onRequestPage_roduktauswahlJsp_Finished()
     this->replyPage_roduktauswahlJsp = nullptr;
 }
 
+
 void SnowMainWnd::startFetchingLoginPage()
 {
     // Stage 1: GET and parse the login html
@@ -204,6 +209,7 @@ void SnowMainWnd::startFetchingLoginPage()
                      this,SLOT(onRequestLoginPageFinished()));
 
 }
+
 
 void SnowMainWnd::startFetchingCaptchaImage()
 {
@@ -220,6 +226,7 @@ void SnowMainWnd::startFetchingCaptchaImage()
     QObject::connect(this->replyCaptchaImage, SIGNAL(finished()),
                      this,SLOT(onFetchingCaptchaImageFinished()));
 }
+
 
 void SnowMainWnd::startSubmitingLoginForm()
 {
@@ -258,6 +265,7 @@ void SnowMainWnd::startSubmitingLoginForm()
     QObject::connect(this->replyLoginFormSubmitted,SIGNAL(finished()),
                      this,SLOT(onSubmitLoginFormFinished()));
 }
+
 
 void SnowMainWnd::startRequestPage_roduktauswahlJsp()
 {
