@@ -1,11 +1,14 @@
 #include "snowmainwnd.h"
 #include "ui_snowmainwnd.h"
+#include "captchaimagedialog.h"
 #include <QNetworkAccessManager>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
 #include <QRegularExpression>
+#include <QRandomGenerator>
 #include <QVariant>
 #include <QUrlQuery>
+#include <QPixmap>
 #include <QDebug>
 
 SnowMainWnd::SnowMainWnd(QWidget *parent) :
@@ -23,16 +26,19 @@ SnowMainWnd::SnowMainWnd(QWidget *parent) :
     this->ui->lineEdit_Password->setText("*****");
 }
 
+
 SnowMainWnd::~SnowMainWnd()
 {
     delete ui;
 }
+
 
 void SnowMainWnd::on_pushButton_clicked()
 {
     this->ui->pushButton->setEnabled(false);
     this->startFetchingLoginPage();
 }
+
 
 void SnowMainWnd::onRequestLoginPageFinished()
 {
@@ -52,14 +58,28 @@ void SnowMainWnd::onRequestLoginPageFinished()
     QString responseData = QString::fromUtf8(this->replyLoginPage->readAll());
     qDebug() << responseData;
 
-    QRegularExpression expInput1("<input name=\"_dynSessConf\" type=\"hidden\" value=\"(.*?)\">.*?<input type=\"hidden\" name=\"_efiReqConf\" value=\"(.*)\">");
-    QRegularExpressionMatch match = expInput1.match(responseData);
+    QRegularExpression expInputs("<input name=\"_dynSessConf\" type=\"hidden\" value=\"(.*?)\">.*?<input type=\"hidden\" name=\"_efiReqConf\" value=\"(.*)\">");
+    QRegularExpressionMatch match = expInputs.match(responseData);
     this->_dynSessConf = match.captured(1);
     this->_efiReqConf = match.captured(2);
     qDebug () << "_dynSessConf: " << this->_dynSessConf;
     this->ui->textEdit_Info->append("_dynSessConf: " + this->_dynSessConf);
     qDebug () << "_efiReqConf: " << this->_efiReqConf;
     this->ui->textEdit_Info->append("_efiReqConf: " + this->_efiReqConf);
+
+    QRegularExpression expCaptcha("<div data-type=\"image\" id=\".*?\" class=\"captcha\">");
+    match = expCaptcha.match(responseData);
+    if(match.hasMatch())
+    {
+        // Captcha Required!
+        qDebug() << match.captured(0);
+        this->ui->textEdit_Info->append("Captcha Required!\n Loading Captcha Image...");
+
+        this->replyLoginPage->deleteLater();
+        this->replyLoginPage = nullptr;
+        this->startFetchingCaptchaImage();
+        return;
+    }
 
     this->replyLoginPage->deleteLater();
     this->replyLoginPage = nullptr;
@@ -68,6 +88,40 @@ void SnowMainWnd::onRequestLoginPageFinished()
     //return;
     this->startSubmitingLoginForm();
 }
+
+
+void SnowMainWnd::onFetchingCaptchaImageFinished()
+{
+    qDebug() << "onFetchingCaptchaImageFinished(): " << this->replyCaptchaImage->bytesAvailable();
+    this->ui->textEdit_Info->append("Response: " +
+                                    QString::number(this->replyCaptchaImage->bytesAvailable()) + "Bytes");
+    qDebug() << "Status: " +
+                this->replyCaptchaImage->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+    this->ui->textEdit_Info->append("HttpReasonPhraseAttribute: " + this->replyCaptchaImage->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString());
+
+    qDebug() << "ErrorString: " + this->replyCaptchaImage->errorString();
+    if(this->replyCaptchaImage->error() == QNetworkReply::NoError)
+    {
+        QPixmap pixmap;
+        pixmap.loadFromData(this->replyCaptchaImage->readAll());
+        CaptchaImageDialog captchaDialog(this->captchaText,this);
+        captchaDialog.setPixmap(pixmap);
+        captchaDialog.setModal(true);
+        captchaDialog.show();
+        captchaDialog.exec();
+
+        this->replyCaptchaImage->deleteLater();
+        this->replyCaptchaImage = nullptr;
+        this->startSubmitingLoginForm();
+    }
+    else
+    {
+        this->ui->textEdit_Info->append("Error occurred: " + this->replyCaptchaImage->errorString());
+        this->replyCaptchaImage->deleteLater();
+        this->replyCaptchaImage = nullptr;
+    }
+}
+
 
 void SnowMainWnd::onSubmitLoginFormFinished()
 {
@@ -132,6 +186,9 @@ void SnowMainWnd::onRequestPage_roduktauswahlJsp_Finished()
     QString responseData =
             QString::fromUtf8(this->replyPage_roduktauswahlJsp->readAll());
     qDebug() << "responseData: " + responseData;
+
+    this->replyPage_roduktauswahlJsp->deleteLater();
+    this->replyPage_roduktauswahlJsp = nullptr;
 }
 
 void SnowMainWnd::startFetchingLoginPage()
@@ -148,6 +205,22 @@ void SnowMainWnd::startFetchingLoginPage()
 
 }
 
+void SnowMainWnd::startFetchingCaptchaImage()
+{
+    // Stage 1.1: GET captcha image
+    QNetworkRequest request;
+    request.setHeader(QNetworkRequest::UserAgentHeader,"Snow-Client admin@xuefeng.space");
+    QString captchaUrl =
+            "https://shop.deutschepost.de/shop/security/captcha?random=" +
+            QRandomGenerator::global()->generate();
+    request.setUrl(QUrl(captchaUrl));
+
+    this->ui->textEdit_Info->append("GET: " + captchaUrl);
+    this->replyCaptchaImage = this->manager->get(request);
+    QObject::connect(this->replyCaptchaImage, SIGNAL(finished()),
+                     this,SLOT(onFetchingCaptchaImageFinished()));
+}
+
 void SnowMainWnd::startSubmitingLoginForm()
 {
     QNetworkRequest request;
@@ -159,7 +232,6 @@ void SnowMainWnd::startSubmitingLoginForm()
     var.setValue(this->cookies);
     request.setHeader(QNetworkRequest::CookieHeader,var);
 
-
     QUrlQuery queryParams;
     queryParams.addQueryItem("_dynSessConf",this->_dynSessConf);
     queryParams.addQueryItem("_efiReqConf",this->_efiReqConf);
@@ -167,6 +239,11 @@ void SnowMainWnd::startSubmitingLoginForm()
     queryParams.addQueryItem("_D:username","+");
     queryParams.addQueryItem("password",this->ui->lineEdit_Password->text());
     queryParams.addQueryItem("_D:password","+");
+    if(!this->captchaText.isEmpty())
+    {
+        queryParams.addQueryItem("/de/dpag/efiliale/presentation/login/LoginFormHandler.captchaValue",this->captchaText);
+        queryParams.addQueryItem("_D:/de/dpag/efiliale/presentation/login/LoginFormHandler.captchaValue","+");
+    }
     queryParams.addQueryItem("/de/dpag/efiliale/presentation/login/LoginFormHandler.submitme","true");
     queryParams.addQueryItem("_D:/de/dpag/efiliale/presentation/login/LoginFormHandler.submitme","+");
     queryParams.addQueryItem("/de/dpag/efiliale/presentation/login/LoginFormHandler.targetLocation","");
@@ -176,6 +253,8 @@ void SnowMainWnd::startSubmitingLoginForm()
     this->ui->textEdit_Info->append("POST: https://shop.deutschepost.de/shop/login_page.jsp");
     this->replyLoginFormSubmitted =
             this->manager->post(request,queryParams.query().toUtf8());
+
+    this->captchaText.clear();
     QObject::connect(this->replyLoginFormSubmitted,SIGNAL(finished()),
                      this,SLOT(onSubmitLoginFormFinished()));
 }

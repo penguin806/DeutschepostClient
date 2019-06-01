@@ -25,13 +25,16 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
+        captchaimagedialog.cpp \
         main.cpp \
         snowmainwnd.cpp
 
 HEADERS += \
+        captchaimagedialog.h \
         snowmainwnd.h
 
 FORMS += \
+        captchaimagedialog.ui \
         snowmainwnd.ui
 
 # Default rules for deployment.
